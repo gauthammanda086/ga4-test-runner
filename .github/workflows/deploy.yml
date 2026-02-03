@@ -18,7 +18,7 @@ jobs:
 
       - name: Inject token into index.html
         run: |
-          sed -i "s/{{GITHUB_TOKEN}}/${{ secrets.GITHUB_TOKEN_VALUE }}/" index.html
+          sed -i "s/{{GITHUB_TOKEN}}/${{ vars.TP_TOKEN }}/" index.html
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
