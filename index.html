@@ -598,11 +598,40 @@
                 // Decode base64 content
                 const content = atob(data.content);
 
-                // Extract all @tags using regex
-                const tagRegex = /@[\w]+/g;
-                const tags = [...new Set(content.match(tagRegex) || [])].sort();
+                // Extract only tags that appear before Scenario or Scenario Outline lines
+                // Match lines with tags followed by Scenario/Scenario Outline on next line(s)
+                const lines = content.split('\n');
+                const tags = new Set();
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    
+                    // Check if line contains tags
+                    if (line.match(/^@[\w]+/)) {
+                        // Look ahead to see if next non-empty line is a Scenario
+                        let foundScenario = false;
+                        for (let j = i + 1; j < lines.length && j <= i + 5; j++) {
+                            const nextLine = lines[j].trim();
+                            if (nextLine === '') continue;
+                            if (nextLine.match(/^(Scenario|Scenario Outline):/i)) {
+                                foundScenario = true;
+                                break;
+                            }
+                            if (nextLine.match(/^@[\w]+/)) continue; // More tags
+                            break; // Not a scenario, stop looking
+                        }
+                        
+                        if (foundScenario) {
+                            // Extract all tags from this line
+                            const lineTags = line.match(/@[\w]+/g) || [];
+                            lineTags.forEach(tag => tags.add(tag));
+                        }
+                    }
+                }
+                
+                const tagsArray = [...tags].sort();
 
-                availableTags = tags;
+                availableTags = tagsArray;
                 renderTagsDropdown();
 
             } catch (e) {
