@@ -119,6 +119,134 @@
             color: #475569;
         }
 
+        /* Multi-select dropdown */
+        .multiselect {
+            position: relative;
+        }
+
+        .multiselect-trigger {
+            width: 100%;
+            padding: 10px 14px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #f1f5f9;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 42px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .multiselect-trigger:hover {
+            border-color: #475569;
+        }
+
+        .multiselect-trigger.open {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .multiselect-trigger-text {
+            flex: 1;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .multiselect-trigger-text.has-selection {
+            color: #f1f5f9;
+        }
+
+        .multiselect-trigger-arrow {
+            width: 12px;
+            height: 12px;
+            margin-left: 8px;
+            transition: transform 0.2s;
+        }
+
+        .multiselect-trigger.open .multiselect-trigger-arrow {
+            transform: rotate(180deg);
+        }
+
+        .multiselect-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .multiselect-dropdown.open {
+            display: block;
+        }
+
+        .multiselect-option {
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.15s;
+            font-size: 13px;
+        }
+
+        .multiselect-option:hover {
+            background: #1e293b;
+        }
+
+        .multiselect-checkbox {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #475569;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .multiselect-option.selected .multiselect-checkbox {
+            background: #6366f1;
+            border-color: #6366f1;
+        }
+
+        .multiselect-checkbox::after {
+            content: '✓';
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            display: none;
+        }
+
+        .multiselect-option.selected .multiselect-checkbox::after {
+            display: block;
+        }
+
+        .multiselect-label {
+            color: #cbd5e1;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .multiselect-count {
+            display: inline-block;
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+
         .button-group {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -301,17 +429,6 @@
             color: #c7d2fe;
         }
 
-        .tag-report-single {
-            background: rgba(139, 92, 246, 0.15);
-            color: #c4b5fd;
-            border-color: rgba(139, 92, 246, 0.25);
-        }
-
-        .tag-report-single:hover:not(:disabled) {
-            background: rgba(139, 92, 246, 0.25);
-            color: #ddd6fe;
-        }
-
         .tag-github {
             background: rgba(148, 163, 184, 0.1);
             color: #64748b;
@@ -410,8 +527,16 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="tags">Tags <span style="color:#475569;">(optional)</span></label>
-                    <input type="text" id="tags" placeholder="e.g. @smoke, @Demo">
+                    <label for="tags">Tags <span style="color:#475569;">(select multiple)</span></label>
+                    <div class="multiselect" id="tagsMultiselect">
+                        <div class="multiselect-trigger" id="tagsTrigger">
+                            <span class="multiselect-trigger-text" id="tagsDisplay">Loading tags...</span>
+                            <svg class="multiselect-trigger-arrow" viewBox="0 0 12 12" fill="currentColor">
+                                <path d="M6 8L1 3h10z"/>
+                            </svg>
+                        </div>
+                        <div class="multiselect-dropdown" id="tagsDropdown"></div>
+                    </div>
                 </div>
             </div>
 
@@ -438,12 +563,13 @@
 
     <script>
         // ============================================================
-        // CONFIG — replace YOUR_NEW_TOKEN_HERE with your actual token
+        // CONFIG
         // ============================================================
         const GITHUB_TOKEN  = '{{GITHUB_TOKEN}}';
         const GITHUB_OWNER  = 'TradePending';
         const GITHUB_REPO   = 'automation';
         const WORKFLOW_FILE = 'playwright-bdd-ci.yml';
+        const FEATURE_PATH  = 'src/features/GA4.feature';
 
         const API_BASE = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`;
 
@@ -454,6 +580,141 @@
         };
 
         // ============================================================
+        // MULTI-SELECT TAGS
+        // ============================================================
+        let availableTags = [];
+        let selectedTags = [];
+
+        async function loadTags() {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/contents/${FEATURE_PATH}?ref=master`,
+                    { headers }
+                );
+                const data = await res.json();
+
+                if (!res.ok) throw new Error('Could not fetch feature file');
+
+                // Decode base64 content
+                const content = atob(data.content);
+
+                // Extract only tags that appear before Scenario or Scenario Outline lines
+                // Match lines with tags followed by Scenario/Scenario Outline on next line(s)
+                const lines = content.split('\n');
+                const tags = new Set();
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    
+                    // Check if line contains tags
+                    if (line.match(/^@[\w]+/)) {
+                        // Look ahead to see if next non-empty line is a Scenario
+                        let foundScenario = false;
+                        for (let j = i + 1; j < lines.length && j <= i + 5; j++) {
+                            const nextLine = lines[j].trim();
+                            if (nextLine === '') continue;
+                            if (nextLine.match(/^(Scenario|Scenario Outline):/i)) {
+                                foundScenario = true;
+                                break;
+                            }
+                            if (nextLine.match(/^@[\w]+/)) continue; // More tags
+                            break; // Not a scenario, stop looking
+                        }
+                        
+                        if (foundScenario) {
+                            // Extract all tags from this line
+                            const lineTags = line.match(/@[\w]+/g) || [];
+                            lineTags.forEach(tag => tags.add(tag));
+                        }
+                    }
+                }
+                
+                const tagsArray = [...tags].sort();
+
+                availableTags = tagsArray;
+                renderTagsDropdown();
+
+            } catch (e) {
+                document.getElementById('tagsDisplay').textContent = 'Could not load tags';
+                console.error('Error loading tags:', e);
+            }
+        }
+
+        function renderTagsDropdown() {
+            const dropdown = document.getElementById('tagsDropdown');
+            const display = document.getElementById('tagsDisplay');
+
+            if (availableTags.length === 0) {
+                display.textContent = 'No tags found';
+                return;
+            }
+
+            display.textContent = 'Select tags...';
+            display.classList.remove('has-selection');
+
+            dropdown.innerHTML = availableTags.map(tag => `
+                <div class="multiselect-option" data-tag="${tag}" onclick="toggleTag('${tag}')">
+                    <div class="multiselect-checkbox"></div>
+                    <span class="multiselect-label">${tag}</span>
+                </div>
+            `).join('');
+        }
+
+        function toggleTag(tag) {
+            const index = selectedTags.indexOf(tag);
+            if (index > -1) {
+                selectedTags.splice(index, 1);
+            } else {
+                selectedTags.push(tag);
+            }
+
+            updateTagsDisplay();
+            updateTagsUI();
+        }
+
+        function updateTagsDisplay() {
+            const display = document.getElementById('tagsDisplay');
+
+            if (selectedTags.length === 0) {
+                display.textContent = 'Select tags...';
+                display.classList.remove('has-selection');
+            } else {
+                display.innerHTML = `${selectedTags.join(', ')} <span class="multiselect-count">${selectedTags.length}</span>`;
+                display.classList.add('has-selection');
+            }
+        }
+
+        function updateTagsUI() {
+            availableTags.forEach(tag => {
+                const option = document.querySelector(`[data-tag="${tag}"]`);
+                if (option) {
+                    if (selectedTags.includes(tag)) {
+                        option.classList.add('selected');
+                    } else {
+                        option.classList.remove('selected');
+                    }
+                }
+            });
+        }
+
+        // Toggle dropdown
+        document.getElementById('tagsTrigger').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const trigger = document.getElementById('tagsTrigger');
+            const dropdown = document.getElementById('tagsDropdown');
+            trigger.classList.toggle('open');
+            dropdown.classList.toggle('open');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('tagsMultiselect').contains(e.target)) {
+                document.getElementById('tagsTrigger').classList.remove('open');
+                document.getElementById('tagsDropdown').classList.remove('open');
+            }
+        });
+
+        // ============================================================
         // TRIGGER TESTS
         // ============================================================
         async function runTests() {
@@ -461,7 +722,7 @@
 
             const environment = document.getElementById('environment').value;
             const feature     = document.getElementById('feature').value;
-            const tags        = document.getElementById('tags').value.trim();
+            const tags        = selectedTags.join(', ');
             const browser     = document.getElementById('browser').value;
 
             btn.disabled = true;
@@ -552,10 +813,8 @@
                 let links = '';
 
                 if (isCompleted) {
-                    // Show download buttons for all completed runs (Allure generates even on failure)
                     links = `
-                        <button class="tag tag-report-full"   onclick="downloadReport(${run.id}, 'full', this)">📁 Full Report</button>
-                        <button class="tag tag-report-single" onclick="downloadReport(${run.id}, 'single', this)">📄 Single Page</button>
+                        <button class="tag tag-report-full" onclick="downloadReport(${run.id}, 'full', this)">📁 Full Report</button>
                     `;
                     if (!isSuccess) {
                         links += `<span class="tag tag-failed">⚠ Tests failed</span>`;
@@ -581,11 +840,7 @@
         }
 
         // ============================================================
-        // DOWNLOAD ARTIFACT DIRECTLY — no backend needed
-        //   1. Fetch artifact list for the run
-        //   2. Find the right artifact (full or single)
-        //   3. Fetch the ZIP with Authorization header
-        //   4. Convert to Blob → trigger browser download
+        // DOWNLOAD ARTIFACT DIRECTLY
         // ============================================================
         async function downloadReport(runId, type, btn) {
             const originalHTML = btn.innerHTML;
@@ -594,19 +849,15 @@
             btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:2px;"></span> Downloading…';
 
             try {
-                // 1. Get artifacts
                 const artRes  = await fetch(`${API_BASE}/actions/runs/${runId}/artifacts`, { headers });
                 const artData = await artRes.json();
 
                 if (!artRes.ok) throw new Error('Could not fetch artifact list.');
 
-                // 2. Find correct artifact
-                const targetName = type === 'single' ? 'allure-report-single-file' : 'allure-report-full';
-                const artifact   = artData.artifacts.find(a => a.name === targetName);
+                const artifact = artData.artifacts.find(a => a.name === 'allure-report-full');
 
                 if (!artifact) throw new Error('Report not found. Workflow may still be generating it.');
 
-                // 3. Download ZIP
                 const zipRes = await fetch(
                     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/artifacts/${artifact.id}/zip`,
                     { headers }
@@ -614,20 +865,17 @@
 
                 if (!zipRes.ok) throw new Error('Download failed. Check token permissions.');
 
-                // 4. Blob → browser download
                 const blob = await zipRes.blob();
                 const url  = URL.createObjectURL(blob);
                 const a    = document.createElement('a');
                 a.href     = url;
-                a.download = type === 'single'
-                    ? `allure-single-run-${runId}.zip`
-                    : `allure-full-run-${runId}.zip`;
+                a.download = `allure-full-run-${runId}.zip`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
 
-                showStatus('success', `✅ ${type === 'single' ? 'Single Page' : 'Full'} report downloaded! Extract the ZIP and open <strong>index.html</strong>.`);
+                showStatus('success', `✅ Full report downloaded! Extract the ZIP and open <strong>index.html</strong>.`);
 
             } catch (e) {
                 showStatus('error', `❌ Download failed: ${e.message}`);
@@ -647,9 +895,13 @@
         }
 
         // ============================================================
-        // INIT + AUTO REFRESH every 30s
+        // INIT
         // ============================================================
-        window.addEventListener('load', loadWorkflows);
+        window.addEventListener('load', () => {
+            loadTags();
+            loadWorkflows();
+        });
+
         setInterval(loadWorkflows, 30000);
     </script>
 </body>

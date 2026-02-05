@@ -82,10 +82,19 @@
             gap: 6px;
         }
 
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
         label {
             font-size: 13px;
             font-weight: 500;
             color: #cbd5e1;
+        }
+
+        label .optional {
+            color: #64748b;
+            font-weight: 400;
         }
 
         select, input {
@@ -117,6 +126,43 @@
 
         input::placeholder {
             color: #475569;
+        }
+
+        /* Custom Environment Section */
+        .custom-env-section {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 10px;
+        }
+
+        .custom-env-section.visible {
+            display: block;
+        }
+
+        .custom-env-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .custom-env-title::before {
+            content: '⚙';
+            font-size: 14px;
+        }
+
+        .custom-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
         }
 
         /* Multi-select dropdown */
@@ -502,11 +548,13 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="environment">Environment</label>
-                    <select id="environment">
+                    <select id="environment" onchange="toggleCustomEnv()">
                         <option value="qa">QA</option>
                         <option value="qaautomation">QA Automation</option>
                         <option value="production">Production</option>
                         <option value="local">Local</option>
+                        <option value="review">Review</option>
+                        <option value="custom">✨ Custom</option>
                     </select>
                 </div>
 
@@ -527,7 +575,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="tags">Tags <span style="color:#475569;">(select multiple)</span></label>
+                    <label for="tags">Tags <span class="optional">(select multiple)</span></label>
                     <div class="multiselect" id="tagsMultiselect">
                         <div class="multiselect-trigger" id="tagsTrigger">
                             <span class="multiselect-trigger-text" id="tagsDisplay">Loading tags...</span>
@@ -536,6 +584,53 @@
                             </svg>
                         </div>
                         <div class="multiselect-dropdown" id="tagsDropdown"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Environment Section -->
+            <div class="custom-env-section" id="customEnvSection">
+                <div class="custom-env-title">Custom Environment URLs</div>
+                <div class="custom-grid">
+                    <div class="form-group">
+                        <label for="customBaseUrl">Base URL <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="customBaseUrl" placeholder="https://inventory.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="customBackEndPage">Backend Page <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="customBackEndPage" placeholder="https://dealer.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="customSnapcellPage">Snapcell Page <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="customSnapcellPage" placeholder="https://snapcell.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="customPaymentsBackEndPage">Payments Backend Page <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="customPaymentsBackEndPage" placeholder="https://admin-payments.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="customPaymentsBackEndTestPage">Payments Backend Test Page <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="customPaymentsBackEndTestPage" placeholder="https://portal-payments.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="customBaseURLPayments">Base URL Payments <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="customBaseURLPayments" placeholder="https://app-payments.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="customDashboardPage">Dashboard Page <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="customDashboardPage" placeholder="https://dashboard.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="customServiceOffersPage">Service Offers Page <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="customServiceOffersPage" placeholder="https://service-offers.example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="customClientId">Client ID <span class="optional">(optional)</span></label>
+                        <input type="text" id="customClientId" placeholder="Leave blank if not needed">
+                    </div>
+                    <div class="form-group">
+                        <label for="customClientSecret">Client Secret <span class="optional">(optional)</span></label>
+                        <input type="text" id="customClientSecret" placeholder="Leave blank if not needed">
                     </div>
                 </div>
             </div>
@@ -580,6 +675,63 @@
         };
 
         // ============================================================
+        // TOGGLE CUSTOM ENVIRONMENT
+        // ============================================================
+        function toggleCustomEnv() {
+            const env = document.getElementById('environment').value;
+            const section = document.getElementById('customEnvSection');
+            
+            if (env === 'custom') {
+                section.classList.add('visible');
+            } else {
+                section.classList.remove('visible');
+            }
+        }
+
+        // ============================================================
+        // VALIDATE CUSTOM ENVIRONMENT
+        // ============================================================
+        function validateCustomEnv() {
+            const requiredFields = [
+                'customBaseUrl',
+                'customBackEndPage',
+                'customSnapcellPage',
+                'customPaymentsBackEndPage',
+                'customPaymentsBackEndTestPage',
+                'customBaseURLPayments',
+                'customDashboardPage',
+                'customServiceOffersPage'
+            ];
+
+            for (const fieldId of requiredFields) {
+                const value = document.getElementById(fieldId).value.trim();
+                if (!value) {
+                    return { valid: false, field: fieldId };
+                }
+            }
+
+            return { valid: true };
+        }
+
+        // ============================================================
+        // GET CUSTOM ENV DATA
+        // ============================================================
+        function getCustomEnvData() {
+            return {
+                baseUrl: document.getElementById('customBaseUrl').value.trim(),
+                backEndPage: document.getElementById('customBackEndPage').value.trim(),
+                snapcellPage: document.getElementById('customSnapcellPage').value.trim(),
+                paymentsBackEndPage: document.getElementById('customPaymentsBackEndPage').value.trim(),
+                paymentsBackEndTestPage: document.getElementById('customPaymentsBackEndTestPage').value.trim(),
+                baseURLPayments: document.getElementById('customBaseURLPayments').value.trim(),
+                dashboardPage: document.getElementById('customDashboardPage').value.trim(),
+                serviceOffersPage: document.getElementById('customServiceOffersPage').value.trim(),
+                clientId: document.getElementById('customClientId').value.trim() || '',
+                clientSecret: document.getElementById('customClientSecret').value.trim() || ''
+            };
+        }
+
+        // ============================================================
         // MULTI-SELECT TAGS
         // ============================================================
         let availableTags = [];
@@ -595,20 +747,14 @@
 
                 if (!res.ok) throw new Error('Could not fetch feature file');
 
-                // Decode base64 content
                 const content = atob(data.content);
-
-                // Extract only tags that appear before Scenario or Scenario Outline lines
-                // Match lines with tags followed by Scenario/Scenario Outline on next line(s)
                 const lines = content.split('\n');
                 const tags = new Set();
                 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i].trim();
                     
-                    // Check if line contains tags
                     if (line.match(/^@[\w]+/)) {
-                        // Look ahead to see if next non-empty line is a Scenario
                         let foundScenario = false;
                         for (let j = i + 1; j < lines.length && j <= i + 5; j++) {
                             const nextLine = lines[j].trim();
@@ -617,12 +763,11 @@
                                 foundScenario = true;
                                 break;
                             }
-                            if (nextLine.match(/^@[\w]+/)) continue; // More tags
-                            break; // Not a scenario, stop looking
+                            if (nextLine.match(/^@[\w]+/)) continue;
+                            break;
                         }
                         
                         if (foundScenario) {
-                            // Extract all tags from this line
                             const lineTags = line.match(/@[\w]+/g) || [];
                             lineTags.forEach(tag => tags.add(tag));
                         }
@@ -697,7 +842,6 @@
             });
         }
 
-        // Toggle dropdown
         document.getElementById('tagsTrigger').addEventListener('click', (e) => {
             e.stopPropagation();
             const trigger = document.getElementById('tagsTrigger');
@@ -706,7 +850,6 @@
             dropdown.classList.toggle('open');
         });
 
-        // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             if (!document.getElementById('tagsMultiselect').contains(e.target)) {
                 document.getElementById('tagsTrigger').classList.remove('open');
@@ -725,11 +868,35 @@
             const tags        = selectedTags.join(', ');
             const browser     = document.getElementById('browser').value;
 
+            // Validate custom env if selected
+            let customEnvData = null;
+            if (environment === 'custom') {
+                const validation = validateCustomEnv();
+                if (!validation.valid) {
+                    showStatus('error', `❌ Please fill in all required custom environment fields`);
+                    return;
+                }
+                customEnvData = getCustomEnvData();
+            }
+
             btn.disabled = true;
             btn.innerHTML = '<span class="loader"></span> Triggering...';
             showStatus('info', '⏳ Triggering GA4 tests on GitHub Actions…');
 
             try {
+                const workflowInputs = {
+                    environments: environment,
+                    feature     : feature,
+                    tags        : tags,
+                    browser     : browser,
+                    parallel    : '2'
+                };
+
+                // Add custom env data if present
+                if (customEnvData) {
+                    workflowInputs.custom_env_json = JSON.stringify(customEnvData);
+                }
+
                 const res = await fetch(
                     `${API_BASE}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
                     {
@@ -737,13 +904,7 @@
                         headers,
                         body: JSON.stringify({
                             ref: 'master',
-                            inputs: {
-                                environments: environment,
-                                feature     : feature,
-                                tags        : tags,
-                                browser     : browser,
-                                parallel    : '2'
-                            }
+                            inputs: workflowInputs
                         })
                     }
                 );
