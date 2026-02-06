@@ -1003,29 +1003,13 @@
         // ============================================================
         // DOWNLOAD ARTIFACT DIRECTLY
         // ============================================================
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-        }
-
-        function estimateDownloadTime(bytes) {
-            // Assume 5 MB/s average download speed
-            const seconds = bytes / (5 * 1024 * 1024);
-            if (seconds < 60) return `~${Math.ceil(seconds)} seconds`;
-            return `~${Math.ceil(seconds / 60)} minutes`;
-        }
-
         async function downloadReport(runId, type, btn) {
             const originalHTML = btn.innerHTML;
 
             btn.disabled  = true;
-            btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:2px;"></span> Checking size...';
+            btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:2px;"></span> Downloading…';
 
             try {
-                // Step 1: Fetch artifact info to get size
                 const artRes  = await fetch(`${API_BASE}/actions/runs/${runId}/artifacts`, { headers });
                 const artData = await artRes.json();
 
@@ -1035,33 +1019,12 @@
 
                 if (!artifact) throw new Error('Report not found. Workflow may still be generating it.');
 
-                // Show file size
-                const sizeFormatted = formatFileSize(artifact.size_in_bytes);
-                const estimatedTime = estimateDownloadTime(artifact.size_in_bytes);
-                
-                const isLarge = artifact.size_in_bytes > 50 * 1024 * 1024; // > 50MB
-                
-                if (isLarge) {
-                    showStatus('info', 
-                        `📦 Report size: <strong>${sizeFormatted}</strong><br>
-                         ⏱️ Estimated download time: <strong>${estimatedTime}</strong><br>
-                         ⏳ Starting download... Please keep this tab open. Do not close or refresh.`
-                    );
-                } else {
-                    showStatus('info', `⏳ Downloading ${sizeFormatted} report...`);
-                }
-
-                btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:2px;"></span> Downloading...';
-
-                // Step 2: Download the artifact
                 const zipRes = await fetch(
                     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/artifacts/${artifact.id}/zip`,
                     { headers }
                 );
 
                 if (!zipRes.ok) throw new Error('Download failed. Check token permissions.');
-
-                btn.innerHTML = '<span class="loader" style="width:12px;height:12px;border-width:2px;"></span> Processing...';
 
                 const blob = await zipRes.blob();
                 const url  = URL.createObjectURL(blob);
@@ -1073,10 +1036,7 @@
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
 
-                showStatus('success', 
-                    `✅ Report downloaded! (${sizeFormatted})<br>
-                     <small>Extract the ZIP and open <strong>index.html</strong> in your browser.</small>`
-                );
+                showStatus('success', `✅ Full report downloaded! Extract the ZIP and open <strong>index.html</strong>.`);
 
             } catch (e) {
                 showStatus('error', `❌ Download failed: ${e.message}`);
