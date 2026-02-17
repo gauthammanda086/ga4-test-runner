@@ -569,15 +569,9 @@
 
                 <div class="form-group">
                     <label for="feature">Feature</label>
-                    <div class="multiselect" id="featureMultiselect">
-                        <div class="multiselect-trigger" id="featureTrigger">
-                            <span class="multiselect-trigger-text" id="featureDisplay">Loading features...</span>
-                            <svg class="multiselect-trigger-arrow" viewBox="0 0 12 12" fill="currentColor">
-                                <path d="M6 8L1 3h10z"/>
-                            </svg>
-                        </div>
-                        <div class="multiselect-dropdown" id="featureDropdown"></div>
-                    </div>
+                    <select id="feature" disabled>
+                        <option value="GA4">GA4 Analytics</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -670,7 +664,7 @@
         const GITHUB_OWNER  = 'TradePending';
         const GITHUB_REPO   = 'automation';
         const WORKFLOW_FILE = 'playwright-bdd-ci.yml';
-        const FEATURES_DIR  = 'src/features';
+        const FEATURE_PATH  = 'src/features/GA4.feature';
 
         const API_BASE = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`;
 
@@ -738,111 +732,15 @@
         }
 
         // ============================================================
-        // SINGLE-SELECT FEATURE DROPDOWN (Dynamic)
-        // ============================================================
-        let availableFeatures = [];
-        let selectedFeature = null;
-
-        async function loadFeatures() {
-            try {
-                const res = await fetch(
-                    `${API_BASE}/contents/${FEATURES_DIR}?ref=master`,
-                    { headers }
-                );
-                const data = await res.json();
-
-                if (!res.ok) throw new Error('Could not fetch features directory');
-
-                // Filter only .feature files and extract names
-                const features = data
-                    .filter(f => f.name.endsWith('.feature'))
-                    .map(f => f.name.replace('.feature', ''))
-                    .sort();
-
-                if (features.length === 0) {
-                    document.getElementById('featureDisplay').textContent = 'No features found';
-                    return;
-                }
-
-                availableFeatures = features;
-                renderFeaturesDropdown();
-
-                // Auto-select first feature and load its tags
-                selectFeature(features[0]);
-
-            } catch (e) {
-                document.getElementById('featureDisplay').textContent = 'Could not load features';
-                console.error('Error loading features:', e);
-            }
-        }
-
-        function renderFeaturesDropdown() {
-            const dropdown = document.getElementById('featureDropdown');
-            dropdown.innerHTML = availableFeatures.map(feature => `
-                <div class="multiselect-option" data-feature="${feature}" onclick="selectFeature('${feature}')">
-                    <div class="multiselect-checkbox"></div>
-                    <span class="multiselect-label">${feature}</span>
-                </div>
-            `).join('');
-        }
-
-        function selectFeature(feature) {
-            selectedFeature = feature;
-
-            // Update display
-            const display = document.getElementById('featureDisplay');
-            display.textContent = feature;
-            display.classList.add('has-selection');
-
-            // Update UI - highlight selected
-            document.querySelectorAll('#featureDropdown .multiselect-option').forEach(opt => {
-                if (opt.dataset.feature === feature) {
-                    opt.classList.add('selected');
-                } else {
-                    opt.classList.remove('selected');
-                }
-            });
-
-            // Close dropdown
-            document.getElementById('featureTrigger').classList.remove('open');
-            document.getElementById('featureDropdown').classList.remove('open');
-
-            // Reload tags for selected feature
-            loadTags(feature);
-        }
-
-        // Feature dropdown toggle
-        document.getElementById('featureTrigger').addEventListener('click', (e) => {
-            e.stopPropagation();
-            const trigger = document.getElementById('featureTrigger');
-            const dropdown = document.getElementById('featureDropdown');
-            trigger.classList.toggle('open');
-            dropdown.classList.toggle('open');
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!document.getElementById('featureMultiselect').contains(e.target)) {
-                document.getElementById('featureTrigger').classList.remove('open');
-                document.getElementById('featureDropdown').classList.remove('open');
-            }
-        });
-
-        // ============================================================
         // MULTI-SELECT TAGS
         // ============================================================
         let availableTags = [];
         let selectedTags = [];
 
-        async function loadTags(featureName) {
+        async function loadTags() {
             try {
-                // Reset tags when feature changes
-                selectedTags = [];
-                updateTagsDisplay();
-                document.getElementById('tagsDisplay').textContent = 'Loading tags...';
-
-                const featurePath = `${FEATURES_DIR}/${featureName}.feature`;
                 const res = await fetch(
-                    `${API_BASE}/contents/${featurePath}?ref=master`,
+                    `${API_BASE}/contents/${FEATURE_PATH}?ref=master`,
                     { headers }
                 );
                 const data = await res.json();
@@ -877,6 +775,7 @@
                 }
                 
                 const tagsArray = [...tags].sort();
+
                 availableTags = tagsArray;
                 renderTagsDropdown();
 
@@ -965,12 +864,7 @@
             const btn = document.getElementById('runBtn');
 
             const environment = document.getElementById('environment').value;
-            // Validate feature selected
-            if (!selectedFeature) {
-                showStatus('error', '❌ Please select a feature to run');
-                return;
-            }
-            const feature = selectedFeature;
+            const feature     = document.getElementById('feature').value;
             const tags        = selectedTags.join(', ');
             const browser     = document.getElementById('browser').value;
 
@@ -1205,7 +1099,7 @@
         // INIT
         // ============================================================
         window.addEventListener('load', () => {
-            loadFeatures(); // loadTags is called automatically after feature loads
+            loadTags();
             loadWorkflows();
         });
 
